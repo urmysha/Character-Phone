@@ -605,6 +605,7 @@ IMPORTANT:
 
                 // Apply multiple repair attempts
                 cleaned = this.fixUnescapedCharacters(cleaned);
+                cleaned = this.fixMissingQuotesInPropertyNames(cleaned);
                 cleaned = this.fixJsonQuotes(cleaned);
                 cleaned = this.fixJsonArrayCommas(cleaned);
                 cleaned = this.fixJsonNewlines(cleaned);
@@ -965,6 +966,29 @@ IMPORTANT:
             return completed;
         } catch (e) {
             console.warn('[LLMProcessor] forceCompleteTruncated failed:', e);
+            return json;
+        }
+    }
+
+    fixMissingQuotesInPropertyNames(json) {
+        try {
+            console.log('[LLMProcessor] Fixing missing quotes in property names...');
+            let fixed = json;
+
+            // Fix property names without quotes: id: "value" -> "id": "value"
+            // This regex matches property names at the start of a line or after { or ,
+            fixed = fixed.replace(/([{,]\s*)([a-zA-Z_][a-zA-Z0-9_]*)\s*:/g, (match, prefix, propName) => {
+                // Check if it's already quoted
+                if (prefix.trim().endsWith('"')) {
+                    return match; // Already quoted, don't change
+                }
+                console.log(`[LLMProcessor] Fixed unquoted property: ${propName}`);
+                return `${prefix}"${propName}":`;
+            });
+
+            return fixed;
+        } catch (e) {
+            console.warn('[LLMProcessor] fixMissingQuotesInPropertyNames failed:', e);
             return json;
         }
     }
