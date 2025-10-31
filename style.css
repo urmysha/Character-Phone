@@ -4,82 +4,6 @@
  */
 
 /* ========================================
-   PHONE BUTTON - INLINE IN BOTTOM TOOLBAR
-   ======================================== */
-
-.character-phone-inline-btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 34px;
-    height: 34px;
-    margin: 0 3px;
-    font-size: 18px;
-    color: rgba(255,255,255,0.85);
-    cursor: pointer;
-    
-    background: rgba(255,255,255,0.12);
-    backdrop-filter: blur(10px) saturate(180%);
-    -webkit-backdrop-filter: blur(10px) saturate(180%);
-    
-    border-radius: 12px; /* iOS bubble */
-    border: 1px solid rgba(255,255,255,0.22);
-    
-    transition: all 0.18s cubic-bezier(.25,.1,.25,1);
-    padding: 0;
-    vertical-align: middle;
-}
-
-.character-phone-inline-btn:hover {
-    background: rgba(255,255,255,0.18);
-    border-color: rgba(255,255,255,0.28);
-    transform: translateY(-1px) scale(1.05);
-}
-
-.character-phone-inline-btn:active {
-    background: rgba(255,255,255,0.22);
-    transform: scale(0.92);
-    border-color: rgba(255,255,255,0.35);
-}
-
-.character-phone-inline-btn i {
-    font-size: 18px;
-    color: rgba(255,255,255,0.95);
-}
-
-/* ========================================
-   FALLBACK: FLOATING BUTTON
-   ======================================== */
-
-.character-phone-floating-btn {
-    position: fixed;
-    bottom: 20px;
-    right: 20px;
-    width: 55px;
-    height: 55px;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
-    transition: all 0.3s ease;
-    z-index: 9999;
-    color: white;
-    font-size: 24px;
-}
-
-.character-phone-floating-btn:hover {
-    transform: scale(1.1);
-    box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
-}
-
-.character-phone-floating-btn:active {
-    transform: scale(0.95);
-}
-
-/* ========================================
    PHONE MODAL
    ======================================== */
 
@@ -172,6 +96,7 @@ html, body {
         display: flex;
         flex-direction: column;
         position: relative;
+		transform: translateY(-40px);
     }
 }
 
@@ -328,7 +253,7 @@ html, body {
 
 .phone-close-btn {
     position: absolute;
-    top: -20px;
+    top: -70px;
     left: 50%;
 	transform: translateX(-50%);
     width: 32px;
