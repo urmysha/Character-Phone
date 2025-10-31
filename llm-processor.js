@@ -604,6 +604,8 @@ IMPORTANT:
                     console.log('[LLMProcessor] JSON parsed successfully');
                 } catch (parseError) {
                     console.error('[LLMProcessor] JSON parse error:', parseError.message);
+					console.log('--- TOÀN BỘ CHUỖI JSON BỊ LỖI ---');
+                    console.log(cleaned); 
                     console.error('[LLMProcessor] Error position:', parseError.message.match(/position (\d+)/)?.[1]);
                     
                     try {
