@@ -520,7 +520,7 @@ class CharacterPhoneExtension {
      */
     applyIncrementalUpdates(updates) {
         log('[CharacterPhone] Applying incremental updates...');
-        
+
         // Add new messages
         if (updates.new_messages && updates.new_messages.length > 0) {
             updates.new_messages.forEach(newMsg => {
@@ -528,7 +528,7 @@ class CharacterPhoneExtension {
                 const existingMsg = this.phoneData.phone_data.messages.find(
                     m => m.contact_name.toLowerCase() === newMsg.contact_name.toLowerCase()
                 );
-                
+
                 if (existingMsg) {
                     // Append to existing thread
                     existingMsg.thread.push(...newMsg.thread);
@@ -543,47 +543,51 @@ class CharacterPhoneExtension {
                 }
             });
         }
-        
-        // Add new browser history
+
+        // Add new browser history (mark as unread)
         if (updates.new_browser_history && updates.new_browser_history.length > 0) {
             updates.new_browser_history.forEach(search => {
                 search.id = `browse_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+                search.is_new = true; // 🆕 Mark as unread
                 this.phoneData.phone_data.browser_history.push(search);
                 log('  ✅ Added browser search:', search.title);
             });
         }
-        
-        // Add new transactions
+
+        // Add new transactions (mark as unread)
         if (updates.new_transactions && updates.new_transactions.length > 0) {
             updates.new_transactions.forEach(trans => {
                 trans.id = `trans_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+                trans.is_new = true; // 🆕 Mark as unread
                 this.phoneData.phone_data.wallet.transactions.push(trans);
-                
+
                 // Update balance
                 this.phoneData.phone_data.wallet.balance += trans.amount;
-                
+
                 log('  ✅ Added transaction:', trans.note, '-', trans.amount);
             });
         }
-        
-        // Add new notes
+
+        // Add new notes (mark as unread)
         if (updates.new_notes && updates.new_notes.length > 0) {
             updates.new_notes.forEach(note => {
                 note.id = `note_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+                note.is_new = true; // 🆕 Mark as unread
                 this.phoneData.phone_data.notes.push(note);
                 log('  ✅ Added note:', note.title);
             });
         }
-        
-        // Add new locations
+
+        // Add new locations (mark as unread)
         if (updates.new_locations && updates.new_locations.length > 0) {
             updates.new_locations.forEach(loc => {
                 loc.id = `loc_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+                loc.is_new = true; // 🆕 Mark as unread
                 this.phoneData.phone_data.location_history.push(loc);
                 log('  ✅ Added location:', loc.from, '→', loc.to);
             });
         }
-        
+
         log('[CharacterPhone] ✅ All updates applied successfully');
     }
 
@@ -856,21 +860,22 @@ class CharacterPhoneExtension {
                 </div>
             `;
         }
-        
+
         const notesCount = this.phoneData.phone_data.notes ? this.phoneData.phone_data.notes.length : 0;
         const historyCount = this.loadPhoneDataHistory().length;
-        
+
+        // 🆕 Use unread count functions for badges
         const apps = [
             { id: 'messages', icon: '💬', label: 'Messages', badge: this.getUnreadMessagesCount() },
-            { id: 'browser', icon: '🌐', label: 'Browser', badge: 0 },
-            { id: 'wallet', icon: '💳', label: 'Wallet', badge: 0 },
-            { id: 'notes', icon: '📝', label: 'Notes', badge: notesCount },
-            { id: 'maps', icon: '🗺️', label: 'Maps', badge: 0 },
+            { id: 'browser', icon: '🌐', label: 'Browser', badge: this.getUnreadBrowserCount() },
+            { id: 'wallet', icon: '💳', label: 'Wallet', badge: this.getUnreadWalletCount() },
+            { id: 'notes', icon: '📝', label: 'Notes', badge: this.getUnreadNotesCount() },
+            { id: 'maps', icon: '🗺️', label: 'Maps', badge: this.getUnreadMapsCount() },
             { id: 'settings', icon: '⚙️', label: 'Settings', badge: 0 },
             { id: 'history', icon: '🕐', label: 'History', badge: historyCount },
             { id: 'update', icon: '🔄', label: 'Update', badge: 0, isAction: true }
         ];
-        
+
         let appsHTML = apps.map(app => `
             <div class="phone-app" onclick="window.characterPhone.openApp('${app.id}')">
                 <div class="app-icon">
@@ -880,7 +885,7 @@ class CharacterPhoneExtension {
                 <div class="app-label">${app.label}</div>
             </div>
         `).join('');
-        
+
         return `
             <div class="phone-homescreen">
                 <div class="phone-wallpaper"></div>
@@ -933,28 +938,32 @@ class CharacterPhoneExtension {
             toastr.warning('Phone data still loading...', 'Character Phone', { timeOut: 2000 });
             return;
         }
-        
+
         log(`Opening app: ${appId}`);
-        
+
         const screen = document.getElementById('phone-screen');
         if (!screen) return;
-        
+
         let appContent = '';
-        
+
         switch(appId) {
             case 'messages':
                 appContent = this.renderMessagesApp();
                 break;
             case 'browser':
+                this.markAppAsRead('browser'); // 🆕 Mark browser items as read
                 appContent = this.renderBrowserApp();
                 break;
             case 'wallet':
+                this.markAppAsRead('wallet'); // 🆕 Mark wallet items as read
                 appContent = this.renderWalletApp();
                 break;
             case 'notes':
+                this.markAppAsRead('notes'); // 🆕 Mark notes as read
                 appContent = this.renderNotesApp();
                 break;
             case 'maps':
+                this.markAppAsRead('maps'); // 🆕 Mark location items as read
                 appContent = this.renderMapsApp();
                 break;
             case 'settings':
@@ -969,7 +978,7 @@ class CharacterPhoneExtension {
             default:
                 appContent = '<div class="app-container"><p style="color: white; padding: 20px;">App not implemented yet</p></div>';
         }
-        
+
         screen.innerHTML = appContent;
     }
 
@@ -1127,16 +1136,19 @@ class CharacterPhoneExtension {
         if (!this.phoneData?.phone_data?.browser_history) {
             return '<div class="app-container"><p style="color: #999; padding: 20px;">No browser history</p></div>';
         }
-        
+
         const history = this.phoneData.phone_data.browser_history;
-        
+
         const sortedHistory = this.sortByTimestamp([...history], 'timestamp');
-        
+
         let historyHTML = sortedHistory.map(item => `
-            <div class="browser-item">
+            <div class="browser-item ${item.is_new ? 'item-unread' : ''}">
                 <div class="browser-icon">🌐</div>
                 <div class="browser-content">
-                    <div class="browser-title">${item.title}</div>
+                    <div class="browser-title">
+                        ${item.title}
+                        ${item.is_new ? '<span class="new-indicator">🔴</span>' : ''}
+                    </div>
                     <div class="browser-url">${item.url}</div>
                     <div class="browser-meta">
                         <span class="browser-time">${this.formatTime(item.timestamp)}</span>
@@ -1146,7 +1158,7 @@ class CharacterPhoneExtension {
                 </div>
             </div>
         `).join('');
-        
+
         return `
             <div class="app-container browser-app">
                 <div class="app-header">
@@ -1181,10 +1193,13 @@ class CharacterPhoneExtension {
         let transactionsHTML = sortedTransactions.map(trans => {
             const isExpense = trans.type === 'expense';
             return `
-                <div class="wallet-transaction ${isExpense ? 'expense' : 'income'}">
+                <div class="wallet-transaction ${isExpense ? 'expense' : 'income'} ${trans.is_new ? 'item-unread' : ''}">
                     <div class="transaction-icon">${isExpense ? '💸' : '💰'}</div>
                     <div class="transaction-content">
-                        <div class="transaction-merchant">${trans.merchant}</div>
+                        <div class="transaction-merchant">
+                            ${trans.merchant}
+                            ${trans.is_new ? '<span class="new-indicator">🔴</span>' : ''}
+                        </div>
                         <div class="transaction-note">${trans.note}</div>
                         <div class="transaction-meta">
                             <span class="transaction-category">${trans.category}</span>
@@ -1231,9 +1246,12 @@ class CharacterPhoneExtension {
         const sortedNotes = this.sortByTimestamp([...notes], 'updated_at');
         
         let notesHTML = sortedNotes.map(note => `
-            <div class="note-item" onclick="window.characterPhone.openNoteDetail('${note.id}')">
+            <div class="note-item ${note.is_new ? 'item-unread' : ''}" onclick="window.characterPhone.openNoteDetail('${note.id}')">
                 <div class="note-header">
-                    <div class="note-title">${note.title}</div>
+                    <div class="note-title">
+                        ${note.title}
+                        ${note.is_new ? '<span class="new-indicator">🔴</span>' : ''}
+                    </div>
                     ${note.pinned ? '<span class="note-pin">📌</span>' : ''}
                 </div>
                 <div class="note-preview">${note.content.substring(0, 100)}${note.content.length > 100 ? '...' : ''}</div>
@@ -1306,13 +1324,16 @@ class CharacterPhoneExtension {
         const sortedLocations = this.sortByTimestamp([...locations], 'arrival_time');
         
         let locationsHTML = sortedLocations.map(loc => `
-            <div class="location-item">
+            <div class="location-item ${loc.is_new ? 'item-unread' : ''}">
                 <div class="location-icon">📍</div>
                 <div class="location-content">
                     <div class="location-route">
                         <span class="location-from">${loc.from}</span>
                         <span class="location-arrow">→</span>
-                        <span class="location-to">${loc.to}</span>
+                        <span class="location-to">
+                            ${loc.to}
+                            ${loc.is_new ? '<span class="new-indicator">🔴</span>' : ''}
+                        </span>
                     </div>
                     <div class="location-meta">
                         <span class="location-mode">${this.getModeEmoji(loc.travel_mode)} ${loc.travel_mode}</span>
@@ -1511,6 +1532,99 @@ class CharacterPhoneExtension {
             return 0;
         }
         return this.phoneData.phone_data.messages.reduce((sum, msg) => sum + msg.unread_count, 0);
+    }
+
+    // 🆕 Count unread browser history items
+    getUnreadBrowserCount() {
+        if (!this.phoneData || !this.phoneData.phone_data || !this.phoneData.phone_data.browser_history) {
+            return 0;
+        }
+        return this.phoneData.phone_data.browser_history.filter(item => item.is_new === true).length;
+    }
+
+    // 🆕 Count unread wallet transactions
+    getUnreadWalletCount() {
+        if (!this.phoneData || !this.phoneData.phone_data || !this.phoneData.phone_data.wallet?.transactions) {
+            return 0;
+        }
+        return this.phoneData.phone_data.wallet.transactions.filter(trans => trans.is_new === true).length;
+    }
+
+    // 🆕 Count unread notes
+    getUnreadNotesCount() {
+        if (!this.phoneData || !this.phoneData.phone_data || !this.phoneData.phone_data.notes) {
+            return 0;
+        }
+        return this.phoneData.phone_data.notes.filter(note => note.is_new === true).length;
+    }
+
+    // 🆕 Count unread locations
+    getUnreadMapsCount() {
+        if (!this.phoneData || !this.phoneData.phone_data || !this.phoneData.phone_data.location_history) {
+            return 0;
+        }
+        return this.phoneData.phone_data.location_history.filter(loc => loc.is_new === true).length;
+    }
+
+    // 🆕 Mark all items in an app as read
+    async markAppAsRead(appId) {
+        if (!this.phoneData || !this.phoneData.phone_data) {
+            return;
+        }
+
+        let hasUnread = false;
+
+        switch(appId) {
+            case 'browser':
+                if (this.phoneData.phone_data.browser_history) {
+                    this.phoneData.phone_data.browser_history.forEach(item => {
+                        if (item.is_new === true) {
+                            item.is_new = false;
+                            hasUnread = true;
+                        }
+                    });
+                }
+                break;
+
+            case 'wallet':
+                if (this.phoneData.phone_data.wallet?.transactions) {
+                    this.phoneData.phone_data.wallet.transactions.forEach(trans => {
+                        if (trans.is_new === true) {
+                            trans.is_new = false;
+                            hasUnread = true;
+                        }
+                    });
+                }
+                break;
+
+            case 'notes':
+                if (this.phoneData.phone_data.notes) {
+                    this.phoneData.phone_data.notes.forEach(note => {
+                        if (note.is_new === true) {
+                            note.is_new = false;
+                            hasUnread = true;
+                        }
+                    });
+                }
+                break;
+
+            case 'maps':
+                if (this.phoneData.phone_data.location_history) {
+                    this.phoneData.phone_data.location_history.forEach(loc => {
+                        if (loc.is_new === true) {
+                            loc.is_new = false;
+                            hasUnread = true;
+                        }
+                    });
+                }
+                break;
+        }
+
+        // Save if there were unread items
+        if (hasUnread) {
+            await this.savePhoneData();
+            log(`📖 Marked ${appId} items as read`);
+        }
     }
 
     getCurrentTime() {
