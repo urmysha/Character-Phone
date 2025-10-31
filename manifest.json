@@ -1,0 +1,13 @@
+{
+  "display_name": "Character Phone",
+  "loading_order": 100,
+  "requires": [],
+  "optional": [],
+  "dependencies": [],
+  "js": "index.js",
+  "css": "style.css",
+  "author": "shasha",
+  "version": "7.0.0",
+  "homePage": "https://github.com/yourname/Extension-CharacterPhone",
+  "minimum_client_version": "1.0.0"
+}
