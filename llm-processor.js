@@ -433,24 +433,44 @@ OUTPUT ONLY VALID JSON with this structure:
     {
       "id": "ig_001",
       "type": "photo",
-      "image_url": null,
-      "image_description": "A beautiful sunset over the ocean with warm orange and pink colors",
+      "images": [
+        {"image_url": null, "image_description": "A beautiful sunset over the ocean with warm orange and pink colors"}
+      ],
       "caption": "Golden hour vibes ✨ #sunset #peaceful",
       "likes": 234,
-      "comments": 12,
+      "liked_by_user": false,
+      "comments_count": 12,
+      "comments_list": [
+        {"username": "friend_name", "text": "Beautiful! 😍", "timestamp": "${currentDate}T18:35:00Z"},
+        {"username": "another_user", "text": "Wow, where is this?", "timestamp": "${currentDate}T18:40:00Z"}
+      ],
       "timestamp": "${currentDate}T18:30:00Z",
       "music": null
     },
     {
       "id": "ig_002",
       "type": "text",
-      "image_url": null,
-      "image_description": null,
+      "images": [],
       "caption": "Sometimes the best moments are the quiet ones ☕",
       "likes": 156,
-      "comments": 8,
+      "liked_by_user": false,
+      "comments_count": 8,
+      "comments_list": [
+        {"username": "bestie", "text": "So true! ☕✨", "timestamp": "${currentDate}T09:05:00Z"}
+      ],
       "timestamp": "${currentDate}T09:00:00Z",
       "music": {"title": "Sunny Day", "artist": "Artist Name"}
+    }
+  ],
+  "instagram_stories": [
+    {
+      "id": "story_001",
+      "image_url": null,
+      "image_description": "A selfie with a coffee cup",
+      "text_overlay": "Good morning! ☕",
+      "timestamp": "${currentDate}T08:00:00Z",
+      "views": 156,
+      "expires_at": "${currentDate}T08:00:00Z"
     }
   ]
 }
@@ -572,7 +592,22 @@ OUTPUT FORMAT (JSON):
     {"from": "...", "to": "...", "departure_time": "${currentDate}T18:00:00Z", "arrival_time": "${currentDate}T18:30:00Z", "travel_mode": "...", "purpose": "...", "route": ["...", "..."]}
   ],
   "new_instagram_posts": [
-    {"type": "photo", "image_url": null, "image_description": "...", "caption": "...", "likes": 100, "comments": 5, "timestamp": "${currentDate}T19:00:00Z", "music": null}
+    {
+      "type": "photo",
+      "images": [{"image_url": null, "image_description": "..."}],
+      "caption": "...",
+      "likes": 100,
+      "liked_by_user": false,
+      "comments_count": 5,
+      "comments_list": [
+        {"username": "friend", "text": "Nice! 😊", "timestamp": "${currentDate}T19:05:00Z"}
+      ],
+      "timestamp": "${currentDate}T19:00:00Z",
+      "music": null
+    }
+  ],
+  "new_instagram_stories": [
+    {"image_url": null, "image_description": "...", "text_overlay": "...", "timestamp": "${currentDate}T20:00:00Z", "views": 50}
   ]
 }
 

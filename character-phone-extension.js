@@ -612,6 +612,26 @@ class CharacterPhoneExtension {
             }
         }
 
+        // Add new Instagram stories (mark as unread)
+        if (updates.new_instagram_stories && updates.new_instagram_stories.length > 0) {
+            // Initialize instagram_stories array if it doesn't exist
+            if (!this.phoneData.phone_data.instagram_stories) {
+                this.phoneData.phone_data.instagram_stories = [];
+            }
+
+            updates.new_instagram_stories.forEach(story => {
+                story.id = `story_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+                story.is_new = true; // 🆕 Mark as unread
+                // Set expiry to 24 hours from now
+                const now = new Date();
+                const expiry = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+                story.expires_at = expiry.toISOString();
+
+                this.phoneData.phone_data.instagram_stories.push(story);
+                log('  ✅ Added Instagram story:', story.text_overlay || 'visual story');
+            });
+        }
+
         log('[CharacterPhone] ✅ All updates applied successfully');
     }
 
@@ -663,8 +683,50 @@ class CharacterPhoneExtension {
                 { id: "loc_001", from: "Home", to: "Work", departure_time: now, arrival_time: now, travel_mode: "car", purpose: "Commute", route: ["Home", "Work"] }
             ],
             instagram_posts: [
-                { id: "ig_001", type: "photo", image_url: null, image_description: "A cozy coffee shop scene with warm lighting", caption: "My favorite spot ☕✨", likes: 142, comments: 8, timestamp: now, music: null, is_new: false },
-                { id: "ig_002", type: "text", image_url: null, image_description: null, caption: "Sometimes silence speaks louder than words 🌙", likes: 95, comments: 5, timestamp: now, music: { title: "Midnight", artist: "Chill Artist" }, is_new: false }
+                {
+                    id: "ig_001",
+                    type: "photo",
+                    images: [
+                        { image_url: null, image_description: "A cozy coffee shop scene with warm lighting" }
+                    ],
+                    caption: "My favorite spot ☕✨",
+                    likes: 142,
+                    liked_by_user: false,
+                    comments_count: 8,
+                    comments_list: [
+                        { username: "bestfriend", text: "Love this place! ☕", timestamp: now },
+                        { username: "coffee_lover", text: "Looks cozy! 😍", timestamp: now }
+                    ],
+                    timestamp: now,
+                    music: null,
+                    is_new: false
+                },
+                {
+                    id: "ig_002",
+                    type: "text",
+                    images: [],
+                    caption: "Sometimes silence speaks louder than words 🌙",
+                    likes: 95,
+                    liked_by_user: false,
+                    comments_count: 5,
+                    comments_list: [
+                        { username: "friend", text: "So deep 💭", timestamp: now }
+                    ],
+                    timestamp: now,
+                    music: { title: "Midnight", artist: "Chill Artist" },
+                    is_new: false
+                }
+            ],
+            instagram_stories: [
+                {
+                    id: "story_001",
+                    image_url: null,
+                    image_description: "A morning coffee selfie",
+                    text_overlay: "Good morning! ☕✨",
+                    timestamp: now,
+                    views: 124,
+                    is_new: false
+                }
             ],
             instagram_profile: {
                 username: charName.toLowerCase().replace(/\s+/g, '_'),
@@ -1402,6 +1464,7 @@ class CharacterPhoneExtension {
         }
 
         const posts = this.phoneData.phone_data.instagram_posts;
+        const stories = this.phoneData.phone_data.instagram_stories || [];
         const profile = this.phoneData.phone_data.instagram_profile || {
             username: 'user',
             display_name: this.getCharacterName(),
@@ -1412,12 +1475,78 @@ class CharacterPhoneExtension {
             following: 0
         };
 
+        // Stories HTML
+        const storiesHTML = stories.length > 0 ? `
+            <div class="ig-stories-container">
+                <div class="ig-stories-scroll">
+                    ${stories.map(story => {
+                        const isNew = story.is_new === true;
+                        return `
+                            <div class="ig-story ${isNew ? 'ig-story-unread' : ''}" onclick="window.characterPhone.viewStory('${story.id}')">
+                                <div class="ig-story-avatar ${profile.avatar_url ? '' : 'ig-avatar-placeholder'}">
+                                    ${profile.avatar_url ?
+                                        `<img src="${profile.avatar_url}" alt="${profile.display_name}">` :
+                                        `<span>${profile.display_name.charAt(0).toUpperCase()}</span>`
+                                    }
+                                </div>
+                                <div class="ig-story-label">${profile.display_name}</div>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+            </div>
+        ` : '';
+
         const sortedPosts = this.sortByTimestamp([...posts], 'timestamp');
 
         const postsHTML = sortedPosts.map(post => {
             const isNewPost = post.is_new === true;
             const hasImage = post.type === 'photo';
             const hasMusic = post.music && post.music.title;
+            const images = post.images || [];
+            const hasMultipleImages = images.length > 1;
+            const isLiked = post.liked_by_user === true;
+            const commentsCount = post.comments_count || 0;
+            const commentsList = post.comments_list || [];
+
+            // Render carousel or single image
+            const imageContent = hasImage ? (
+                hasMultipleImages ? `
+                    <div class="ig-carousel" data-post-id="${post.id}">
+                        <div class="ig-carousel-track">
+                            ${images.map((img, idx) => `
+                                <div class="ig-carousel-slide ${idx === 0 ? 'active' : ''}">
+                                    ${img.image_url ?
+                                        `<img src="${img.image_url}" class="ig-post-image" alt="Post" ondblclick="window.characterPhone.likePost('${post.id}')">` :
+                                        `<div class="ig-image-placeholder" onclick="window.characterPhone.uploadCarouselImage(event, '${post.id}', ${idx})">
+                                            <div class="ig-image-description">${img.image_description || 'No image'}</div>
+                                            <div class="ig-camera-overlay-large">📷 Click to upload</div>
+                                        </div>`
+                                    }
+                                </div>
+                            `).join('')}
+                        </div>
+                        ${hasMultipleImages ? `
+                            <button class="ig-carousel-prev" onclick="window.characterPhone.prevCarouselImage('${post.id}')">‹</button>
+                            <button class="ig-carousel-next" onclick="window.characterPhone.nextCarouselImage('${post.id}')">›</button>
+                            <div class="ig-carousel-dots">
+                                ${images.map((_, idx) => `<span class="ig-dot ${idx === 0 ? 'active' : ''}"></span>`).join('')}
+                            </div>
+                        ` : ''}
+                    </div>
+                ` : (
+                    images[0]?.image_url ?
+                        `<div class="ig-post-image-container" ondblclick="window.characterPhone.likePost('${post.id}')">
+                            <img src="${images[0].image_url}" class="ig-post-image" alt="Post">
+                        </div>` :
+                        `<div class="ig-post-image-container" onclick="window.characterPhone.uploadPostImage(event, '${post.id}')">
+                            <div class="ig-image-placeholder">
+                                <div class="ig-image-description">${images[0]?.image_description || 'No image'}</div>
+                                <div class="ig-camera-overlay-large">📷 Click to upload</div>
+                            </div>
+                        </div>`
+                )
+            ) : `<div class="ig-text-post" ondblclick="window.characterPhone.likePost('${post.id}')"><p>${post.caption}</p></div>`;
 
             return `
                 <div class="ig-post ${isNewPost ? 'ig-post-unread' : ''}" data-post-id="${post.id}">
@@ -1437,31 +1566,21 @@ class CharacterPhoneExtension {
                         <button class="ig-options-btn">⋯</button>
                     </div>
 
-                    <!-- Post Image/Content -->
-                    <div class="ig-post-image-container" onclick="window.characterPhone.uploadPostImage(event, '${post.id}')">
-                        ${hasImage ?
-                            (post.image_url ?
-                                `<img src="${post.image_url}" class="ig-post-image" alt="Post">` :
-                                `<div class="ig-image-placeholder">
-                                    <div class="ig-image-description">${post.image_description || 'No image'}</div>
-                                    <div class="ig-camera-overlay-large">📷 Click to upload image</div>
-                                </div>`
-                            ) :
-                            `<div class="ig-text-post">
-                                <p>${post.caption}</p>
-                            </div>`
-                        }
+                    <!-- Post Image/Content with Like Animation -->
+                    <div class="ig-post-media" data-post-id="${post.id}">
+                        ${imageContent}
+                        <div class="ig-like-animation">❤️</div>
                     </div>
 
                     <!-- Post Actions -->
                     <div class="ig-post-actions">
                         <div class="ig-action-buttons">
-                            <button class="ig-action-btn">
+                            <button class="ig-action-btn ig-like-btn ${isLiked ? 'liked' : ''}" onclick="window.characterPhone.likePost('${post.id}')">
                                 <svg width="24" height="24" viewBox="0 0 24 24">
-                                    <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" fill="none" stroke="currentColor" stroke-width="2"/>
+                                    <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" fill="${isLiked ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2"/>
                                 </svg>
                             </button>
-                            <button class="ig-action-btn">
+                            <button class="ig-action-btn" onclick="window.characterPhone.toggleComments('${post.id}')">
                                 <svg width="24" height="24" viewBox="0 0 24 24">
                                     <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z" fill="none" stroke="currentColor" stroke-width="2"/>
                                 </svg>
@@ -1488,8 +1607,10 @@ class CharacterPhoneExtension {
                                 ${post.caption}
                             </div>` : ''
                         }
-                        ${post.comments > 0 ?
-                            `<div class="ig-comments-link">View all ${post.comments} comments</div>` : ''
+                        ${commentsCount > 0 ?
+                            `<div class="ig-comments-link" onclick="window.characterPhone.toggleComments('${post.id}')">
+                                View all ${commentsCount} comments
+                            </div>` : ''
                         }
                         <div class="ig-timestamp">${this.formatTime(post.timestamp)}</div>
                         ${hasMusic ?
@@ -1499,6 +1620,21 @@ class CharacterPhoneExtension {
                             </div>` : ''
                         }
                     </div>
+
+                    <!-- Comments Section (collapsible) -->
+                    ${commentsList.length > 0 ? `
+                        <div class="ig-comments-section" id="comments-${post.id}" style="display: none;">
+                            ${commentsList.map(comment => `
+                                <div class="ig-comment">
+                                    <div class="ig-comment-avatar">${comment.username.charAt(0).toUpperCase()}</div>
+                                    <div class="ig-comment-content">
+                                        <span class="ig-comment-username">${comment.username}</span>
+                                        <span class="ig-comment-text">${comment.text}</span>
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    ` : ''}
                 </div>
             `;
         }).join('');
@@ -1532,19 +1668,22 @@ class CharacterPhoneExtension {
                     </div>
                     <div class="ig-profile-stats">
                         <div class="ig-stat">
-                            <div class="ig-stat-number">${profile.posts_count}</div>
+                            <div class="ig-stat-number" style="color: #000;">${profile.posts_count}</div>
                             <div class="ig-stat-label">posts</div>
                         </div>
                         <div class="ig-stat">
-                            <div class="ig-stat-number">${profile.followers}</div>
+                            <div class="ig-stat-number" style="color: #000;">${profile.followers}</div>
                             <div class="ig-stat-label">followers</div>
                         </div>
                         <div class="ig-stat">
-                            <div class="ig-stat-number">${profile.following}</div>
+                            <div class="ig-stat-number" style="color: #000;">${profile.following}</div>
                             <div class="ig-stat-label">following</div>
                         </div>
                     </div>
                 </div>
+
+                <!-- Stories -->
+                ${storiesHTML}
 
                 <!-- Feed -->
                 <div class="ig-feed">
@@ -1587,13 +1726,26 @@ class CharacterPhoneExtension {
                     this.phoneData.phone_data.instagram_profile.avatar_url = imageData;
                 }
                 log('✅ Instagram avatar updated');
+            } else if (typeof this.currentUploadTarget === 'object' && this.currentUploadTarget.type === 'carousel') {
+                // Update carousel image
+                const post = this.phoneData.phone_data.instagram_posts.find(
+                    p => p.id === this.currentUploadTarget.postId
+                );
+                if (post && post.images && post.images[this.currentUploadTarget.imageIndex]) {
+                    post.images[this.currentUploadTarget.imageIndex].image_url = imageData;
+                    log('✅ Instagram carousel image updated:', post.id, 'index:', this.currentUploadTarget.imageIndex);
+                }
             } else {
-                // Update post image
+                // Update single post image (legacy support)
                 const post = this.phoneData.phone_data.instagram_posts.find(
                     p => p.id === this.currentUploadTarget
                 );
                 if (post) {
-                    post.image_url = imageData;
+                    if (post.images && post.images.length > 0) {
+                        post.images[0].image_url = imageData;
+                    } else {
+                        post.image_url = imageData; // Legacy
+                    }
                     log('✅ Instagram post image updated:', post.id);
                 }
             }
@@ -1605,6 +1757,150 @@ class CharacterPhoneExtension {
 
         reader.readAsDataURL(file);
         event.target.value = ''; // Reset input
+    }
+
+    // 🆕 Like a post (toggle like + animation)
+    async likePost(postId) {
+        const post = this.phoneData.phone_data.instagram_posts.find(p => p.id === postId);
+        if (!post) return;
+
+        // Toggle like
+        post.liked_by_user = !post.liked_by_user;
+        post.likes += post.liked_by_user ? 1 : -1;
+
+        // Show like animation
+        const postEl = document.querySelector(`[data-post-id="${postId}"] .ig-like-animation`);
+        if (postEl) {
+            postEl.classList.add('show');
+            setTimeout(() => postEl.classList.remove('show'), 1000);
+        }
+
+        // Update button
+        const likeBtn = document.querySelector(`[data-post-id="${postId}"] .ig-like-btn`);
+        if (likeBtn) {
+            if (post.liked_by_user) {
+                likeBtn.classList.add('liked');
+                likeBtn.querySelector('path').setAttribute('fill', 'currentColor');
+            } else {
+                likeBtn.classList.remove('liked');
+                likeBtn.querySelector('path').setAttribute('fill', 'none');
+            }
+        }
+
+        // Update likes count
+        const likesEl = document.querySelector(`[data-post-id="${postId}"] .ig-likes`);
+        if (likesEl) {
+            likesEl.textContent = `${post.likes.toLocaleString()} likes`;
+        }
+
+        await this.savePhoneData();
+        log(`${post.liked_by_user ? '❤️' : '🤍'} Post ${postId}`);
+    }
+
+    // 🆕 Toggle comments visibility
+    toggleComments(postId) {
+        const commentsEl = document.getElementById(`comments-${postId}`);
+        if (!commentsEl) return;
+
+        const isVisible = commentsEl.style.display !== 'none';
+        commentsEl.style.display = isVisible ? 'none' : 'block';
+        log(`${isVisible ? 'Hide' : 'Show'} comments for ${postId}`);
+    }
+
+    // 🆕 View Instagram story
+    async viewStory(storyId) {
+        const story = this.phoneData.phone_data.instagram_stories.find(s => s.id === storyId);
+        if (!story) return;
+
+        // Mark story as read
+        story.is_new = false;
+
+        // Show story viewer (simple fullscreen overlay)
+        const profile = this.phoneData.phone_data.instagram_profile;
+        const storyHTML = `
+            <div class="ig-story-viewer" onclick="window.characterPhone.closeStoryViewer()">
+                <div class="ig-story-header">
+                    <div class="ig-story-user-info">
+                        <div class="ig-story-user-avatar">${profile.display_name.charAt(0).toUpperCase()}</div>
+                        <span>${profile.display_name}</span>
+                        <span class="ig-story-time">${this.formatTime(story.timestamp)}</span>
+                    </div>
+                    <button class="ig-story-close" onclick="window.characterPhone.closeStoryViewer()">✕</button>
+                </div>
+                <div class="ig-story-content">
+                    ${story.image_url ?
+                        `<img src="${story.image_url}" alt="Story">` :
+                        `<div class="ig-story-placeholder">
+                            <p>${story.image_description || story.text_overlay}</p>
+                        </div>`
+                    }
+                    ${story.text_overlay ? `<div class="ig-story-text">${story.text_overlay}</div>` : ''}
+                </div>
+                <div class="ig-story-footer">
+                    <div class="ig-story-views">👁️ ${story.views} views</div>
+                </div>
+            </div>
+        `;
+
+        // Add to DOM
+        const viewer = document.createElement('div');
+        viewer.innerHTML = storyHTML;
+        document.body.appendChild(viewer.firstElementChild);
+
+        await this.savePhoneData();
+        log(`📖 Viewed story: ${storyId}`);
+    }
+
+    // 🆕 Close story viewer
+    closeStoryViewer() {
+        const viewer = document.querySelector('.ig-story-viewer');
+        if (viewer) {
+            viewer.remove();
+            this.openApp('instagram'); // Refresh to update unread status
+        }
+    }
+
+    // 🆕 Next carousel image
+    nextCarouselImage(postId) {
+        const carousel = document.querySelector(`[data-post-id="${postId}"] .ig-carousel`);
+        if (!carousel) return;
+
+        const slides = carousel.querySelectorAll('.ig-carousel-slide');
+        const dots = carousel.querySelectorAll('.ig-dot');
+        let currentIndex = Array.from(slides).findIndex(s => s.classList.contains('active'));
+
+        slides[currentIndex].classList.remove('active');
+        dots[currentIndex].classList.remove('active');
+
+        currentIndex = (currentIndex + 1) % slides.length;
+
+        slides[currentIndex].classList.add('active');
+        dots[currentIndex].classList.add('active');
+    }
+
+    // 🆕 Previous carousel image
+    prevCarouselImage(postId) {
+        const carousel = document.querySelector(`[data-post-id="${postId}"] .ig-carousel`);
+        if (!carousel) return;
+
+        const slides = carousel.querySelectorAll('.ig-carousel-slide');
+        const dots = carousel.querySelectorAll('.ig-dot');
+        let currentIndex = Array.from(slides).findIndex(s => s.classList.contains('active'));
+
+        slides[currentIndex].classList.remove('active');
+        dots[currentIndex].classList.remove('active');
+
+        currentIndex = (currentIndex - 1 + slides.length) % slides.length;
+
+        slides[currentIndex].classList.add('active');
+        dots[currentIndex].classList.add('active');
+    }
+
+    // 🆕 Upload carousel image
+    async uploadCarouselImage(event, postId, imageIndex) {
+        event.stopPropagation();
+        this.currentUploadTarget = { type: 'carousel', postId, imageIndex };
+        document.getElementById('ig-upload-input').click();
     }
 
     renderSettingsApp() {
