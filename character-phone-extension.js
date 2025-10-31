@@ -71,7 +71,7 @@ class CharacterPhoneExtension {
         }
         
         return 'Character';
-    }
+        }
 
     createPhoneButton() {
         log('Creating phone menu item in extensions menu...');
@@ -80,6 +80,14 @@ class CharacterPhoneExtension {
         if (existingMenuItem) {
             log('Menu item already exists, removing old one');
             existingMenuItem.remove();
+
+
+
+
+
+
+
+
         }
 
         this.createExtensionMenuItem();
@@ -99,6 +107,7 @@ class CharacterPhoneExtension {
                 <span>Character Phone</span>
             </div>
         `;
+
 
         const self = this;
         menuItem.addEventListener('click', async function(e) {
@@ -128,6 +137,42 @@ class CharacterPhoneExtension {
             console.warn('[CharacterPhone] Extensions menu not found - retrying initialization in 500ms');
             setTimeout(() => this.createPhoneButton(), 500);
         }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     }
 
     registerEventListeners() {
