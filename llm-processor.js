@@ -470,7 +470,7 @@ PERSONALITY: ${characterInfo.personality || 'N/A'}
 
 ${existingSummary}
 
-NEW MESSAGES TO ANALYZE:
+NEW MESSAGES TO ANALYZE (between ${characterName} and USER):
 ${newMessagesText}
 
 WORLD INFO:
@@ -478,18 +478,36 @@ ${worldInfoText}
 
 ---
 
+⚠️ CRITICAL INSTRUCTIONS - READ CAREFULLY:
+
+The NEW MESSAGES above are conversations between ${characterName} and the USER.
+These are for CONTEXT ONLY - DO NOT copy them into phone messages!
+
 YOUR TASK: Analyze the NEW messages above and identify if there are ANY new:
-1. 💬 Messages/conversations ${characterName} had with someone
+1. 💬 Messages/conversations ${characterName} had with OTHER PEOPLE (NPCs, friends, family - NOT the user!)
 2. 🌐 Things ${characterName} searched on the internet
 3. 💰 Money transactions (spending or receiving money)
 4. 📝 Notes/reminders ${characterName} made
 5. 📍 Places ${characterName} visited
 
+🚨 EXTREMELY IMPORTANT FOR MESSAGES:
+❌ WRONG: Adding messages between ${characterName} and the User
+❌ WRONG: Copying the NEW MESSAGES above into phone data
+✅ CORRECT: Only add messages if ${characterName} mentioned texting/calling/messaging someone ELSE
+✅ CORRECT: Messages should be with NPCs (friends, family, colleagues, etc.)
+
+Example scenarios:
+- If ${characterName} says "I texted mom earlier" → Add conversation with "Mom"
+- If ${characterName} mentions "talking to a friend" → Add conversation with that friend
+- If ${characterName} says "I messaged the store" → Add conversation with store
+- If NO mention of other people → Return empty array for new_messages
+
 RULES:
-- ONLY add NEW information from the NEW messages
+- ONLY add NEW information explicitly mentioned in the NEW messages
 - If nothing relevant found, return empty arrays
 - DO NOT duplicate existing data
 - DO NOT regenerate old data
+- DO NOT assume or infer - only add what's clearly stated
 - Keep format consistent with existing data
 - Use realistic timestamps (today: ${currentDate})
 
@@ -501,10 +519,10 @@ OUTPUT FORMAT (JSON):
       "contact_name": "Name",
       "contact_type": "npc",
       "thread": [
-        {"sender": "${characterName}", "content": "...", "timestamp": "${currentDate}T14:00:00Z", "read": true}
+        {"sender": "${characterName}", "content": "...", "timestamp": "${currentDate}T14:00:00Z", "read": false},
+        {"sender": "Name", "content": "...", "timestamp": "${currentDate}T14:05:00Z", "read": false}
       ],
-      "last_message_time": "${currentDate}T14:00:00Z",
-      "unread_count": 0
+      "last_message_time": "${currentDate}T14:05:00Z"
     }
   ],
   "new_browser_history": [
