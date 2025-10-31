@@ -470,7 +470,7 @@ PERSONALITY: ${characterInfo.personality || 'N/A'}
 
 ${existingSummary}
 
-NEW MESSAGES TO ANALYZE:
+NEW MESSAGES TO ANALYZE (between ${characterName} and USER):
 ${newMessagesText}
 
 WORLD INFO:
@@ -478,15 +478,20 @@ ${worldInfoText}
 
 ---
 
+⚠️ CRITICAL INSTRUCTIONS - READ CAREFULLY:
+
+The NEW MESSAGES above are conversations between ${characterName} and the USER.
+These are for CONTEXT ONLY - DO NOT copy them into phone messages!
+
 YOUR TASK: Analyze the NEW messages above and identify if there are ANY new:
-1. 💬 Messages/conversations ${characterName} had with someone
+1. 💬 Messages/Conversations via text message that ${characterName} had with someone
 2. 🌐 Things ${characterName} searched on the internet
 3. 💰 Money transactions (spending or receiving money)
 4. 📝 Notes/reminders ${characterName} made
 5. 📍 Places ${characterName} visited
 
 RULES:
-- ONLY add NEW information from the NEW messages
+- ONLY add NEW information explicitly mentioned in the NEW messages
 - If nothing relevant found, return empty arrays
 - DO NOT duplicate existing data
 - DO NOT regenerate old data
@@ -502,9 +507,10 @@ OUTPUT FORMAT (JSON):
       "contact_type": "npc",
       "thread": [
         {"sender": "${characterName}", "content": "...", "timestamp": "${currentDate}T14:00:00Z", "read": true}
+		{"sender": "Name", "content": "...", "timestamp": "${currentDate}T14:05:00Z", "read": false}
       ],
       "last_message_time": "${currentDate}T14:00:00Z",
-      "unread_count": 0
+	  
     }
   ],
   "new_browser_history": [

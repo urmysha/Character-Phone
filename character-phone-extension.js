@@ -524,6 +524,8 @@ class CharacterPhoneExtension {
         // Add new messages
         if (updates.new_messages && updates.new_messages.length > 0) {
             updates.new_messages.forEach(newMsg => {
+				// Calculate unread count from thread (messages with read: false)
+                const unreadInThread = newMsg.thread.filter(msg => msg.read === false).length;
                 // Check if contact already exists
                 const existingMsg = this.phoneData.phone_data.messages.find(
                     m => m.contact_name.toLowerCase() === newMsg.contact_name.toLowerCase()
@@ -533,13 +535,14 @@ class CharacterPhoneExtension {
                     // Append to existing thread
                     existingMsg.thread.push(...newMsg.thread);
                     existingMsg.last_message_time = newMsg.last_message_time;
-                    existingMsg.unread_count += newMsg.unread_count;
-                    log('  ✅ Updated existing conversation with:', newMsg.contact_name);
+                    existingMsg.unread_count = (existingMsg.unread_count || 0) + unreadInThread;
+                    log('  ✅ Updated existing conversation with:', newMsg.contact_name, `(+${unreadInThread} unread)`);
                 } else {
-                    // Add as new conversation
+                    // Add as new conversation with calculated unread_count
                     newMsg.id = `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+					newMsg.unread_count = unreadInThread;
                     this.phoneData.phone_data.messages.push(newMsg);
-                    log('  ✅ Added new conversation with:', newMsg.contact_name);
+                    log('  ✅ Added new conversation with:', newMsg.contact_name, `(${unreadInThread} unread)`);
                 }
             });
         }
@@ -878,7 +881,7 @@ class CharacterPhoneExtension {
             { id: 'notes', icon: '📝', label: 'Notes', badge: this.getUnreadMessagesCount() },
             { id: 'maps', icon: '🗺️', label: 'Maps', badge: this.getUnreadMessagesCount() },
             { id: 'settings', icon: '⚙️', label: 'Settings', badge: 0 },
-            { id: 'history', icon: '🕐', label: 'History', badge: historyCount },
+            { id: 'history', icon: '🕐', label: 'History', badge: 0 }, // No badge for history
             { id: 'update', icon: '🔄', label: 'Update', badge: 0, isAction: true }
         ];
         
