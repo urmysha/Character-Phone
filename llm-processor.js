@@ -568,52 +568,72 @@ IMPORTANT:
     parsePhoneData(llmResponse) {
         try {
             log('[LLMProcessor] Parsing LLM response...');
-            
+
             if (typeof llmResponse === 'string') {
                 console.log('[LLMProcessor] Raw LLM response length:', llmResponse.length);
                 console.log('[LLMProcessor] Raw LLM response (first 500 chars):', llmResponse.substring(0, 500));
             }
-            
+
             let data = llmResponse;
-            
+
             if (typeof llmResponse === 'string') {
                 let cleaned = llmResponse.trim();
-                
+
                 console.log('[LLMProcessor] Cleaning LLM response...');
-                
+
+                // Remove markdown code blocks
                 cleaned = cleaned.replace(/```json\n?/gi, '');
                 cleaned = cleaned.replace(/```\n?/g, '');
                 cleaned = cleaned.trim();
-                
+
+                // Extract JSON object
                 const jsonMatch = cleaned.match(/\{[\s\S]*\}(?=\s*$|\s*[\n\r])/);
                 if (jsonMatch) {
                     cleaned = jsonMatch[0];
                     console.log('[LLMProcessor] Extracted JSON from response');
                 }
-                
+
+                // Remove trailing commas
                 cleaned = cleaned.replace(/,(\s*[}\]])/g, '$1');
-                
+
+                // Apply multiple repair attempts
                 cleaned = this.fixJsonQuotes(cleaned);
                 cleaned = this.fixJsonArrayCommas(cleaned);
                 cleaned = this.fixJsonNewlines(cleaned);
-                
+                cleaned = this.fixBrokenStrings(cleaned);
+
                 console.log('[LLMProcessor] Cleaned JSON (first 300 chars):', cleaned.substring(0, 300));
-                
+
+                // Try parsing with multiple attempts
                 try {
                     data = JSON.parse(cleaned);
-                    console.log('[LLMProcessor] JSON parsed successfully');
+                    console.log('[LLMProcessor] ✅ JSON parsed successfully');
                 } catch (parseError) {
-                    console.error('[LLMProcessor] JSON parse error:', parseError.message);
-                    console.error('[LLMProcessor] Error position:', parseError.message.match(/position (\d+)/)?.[1]);
-                    
+                    console.error('[LLMProcessor] ❌ JSON parse error:', parseError.message);
+                    const errorPos = parseError.message.match(/position (\d+)/)?.[1];
+                    console.error('[LLMProcessor] Error position:', errorPos);
+
+                    if (errorPos) {
+                        const pos = parseInt(errorPos);
+                        console.error('[LLMProcessor] Context around error:');
+                        console.error('  Before:', cleaned.substring(Math.max(0, pos - 50), pos));
+                        console.error('  Error at:', cleaned.substring(pos, pos + 50));
+                    }
+
+                    // Try aggressive repair
                     try {
+                        console.log('[LLMProcessor] Attempting aggressive repair...');
                         cleaned = this.aggressiveJsonRepair(cleaned);
                         data = JSON.parse(cleaned);
-                        console.log('[LLMProcessor] JSON parsed successfully after aggressive repair');
+                        console.log('[LLMProcessor] ✅ JSON parsed after aggressive repair');
                     } catch (finalError) {
-                        console.error('[LLMProcessor] Final JSON parse failed:', finalError.message);
-                        console.error('[LLMProcessor] Failed JSON string (first 500 chars):', cleaned.substring(0, 500));
-                        throw new Error('Failed to parse LLM response as JSON: ' + parseError.message);
+                        console.error('[LLMProcessor] ❌ Final JSON parse failed:', finalError.message);
+                        console.error('[LLMProcessor] Failed JSON (first 1000 chars):', cleaned.substring(0, 1000));
+
+                        // Save failed JSON to console for debugging
+                        console.error('[LLMProcessor] Full failed JSON:', cleaned);
+
+                        throw new Error('Failed to parse LLM response as JSON: ' + parseError.message + ' at position ' + errorPos);
                     }
                 }
             }
@@ -804,32 +824,80 @@ IMPORTANT:
         }
     }
 
+    fixBrokenStrings(json) {
+        try {
+            console.log('[LLMProcessor] Fixing broken strings...');
+            let fixed = json;
+
+            // Fix strings with unescaped quotes
+            fixed = fixed.replace(/"([^"]*)"([^",:}\]]*)"([^"]*)":/g, '"$1\\"$2\\"$3":');
+
+            // Fix incomplete strings at array boundaries
+            fixed = fixed.replace(/"([^"]*)\s*\n\s*\}/g, '"$1"}');
+            fixed = fixed.replace(/"([^"]*)\s*\n\s*\]/g, '"$1"]');
+
+            // Fix missing commas between array elements
+            fixed = fixed.replace(/\}\s*\n\s*\{/g, '},\n{');
+            fixed = fixed.replace(/\]\s*\n\s*\[/g, '],\n[');
+
+            return fixed;
+        } catch (e) {
+            console.warn('[LLMProcessor] fixBrokenStrings failed:', e);
+            return json;
+        }
+    }
+
     aggressiveJsonRepair(json) {
         try {
             console.log('[LLMProcessor] Applying aggressive JSON repair...');
             let repaired = json;
-            
+
+            // Remove trailing quotes/apostrophes
             repaired = repaired.replace(/\}'$/g, '}');
             repaired = repaired.replace(/\]'$/g, ']');
+
+            // Fix newlines in string values
             repaired = repaired.replace(/": "([^"]*)\n([^"]*)" /g, '": "$1 $2" ');
-            
+
+            // Fix broken array elements (missing commas)
+            repaired = repaired.replace(/\}(\s*)\{/g, '},$1{');
+            repaired = repaired.replace(/\](\s*)\[/g, '],$1[');
+
+            // Fix missing quotes around property names
+            repaired = repaired.replace(/([{,]\s*)([a-zA-Z_][a-zA-Z0-9_]*)\s*:/g, '$1"$2":');
+
+            // Balance braces
             const openBraces = (repaired.match(/\{/g) || []).length;
             const closeBraces = (repaired.match(/\}/g) || []).length;
             if (openBraces > closeBraces) {
                 repaired += '}'.repeat(openBraces - closeBraces);
-                console.log('[LLMProcessor] Added missing closing braces');
+                console.log('[LLMProcessor] Added', openBraces - closeBraces, 'missing closing braces');
+            } else if (closeBraces > openBraces) {
+                console.warn('[LLMProcessor] Too many closing braces!');
             }
-            
+
+            // Balance brackets
             const openBrackets = (repaired.match(/\[/g) || []).length;
             const closeBrackets = (repaired.match(/\]/g) || []).length;
             if (openBrackets > closeBrackets) {
                 repaired += ']'.repeat(openBrackets - closeBrackets);
-                console.log('[LLMProcessor] Added missing closing brackets');
+                console.log('[LLMProcessor] Added', openBrackets - closeBrackets, 'missing closing brackets');
+            } else if (closeBrackets > openBrackets) {
+                console.warn('[LLMProcessor] Too many closing brackets!');
             }
-            
+
+            // Remove trailing commas
             repaired = repaired.replace(/,(\s*[}\]])/g, '$1');
+
+            // Fix multiple spaces in strings
             repaired = repaired.replace(/": "([^"]*)  +([^"]*)"/g, '": "$1 $2"');
-            
+
+            // Try to fix truncated arrays
+            if (repaired.endsWith(',')) {
+                repaired = repaired.slice(0, -1) + ']';
+                console.log('[LLMProcessor] Fixed truncated array');
+            }
+
             return repaired;
         } catch (e) {
             console.warn('[LLMProcessor] aggressiveJsonRepair failed:', e);
