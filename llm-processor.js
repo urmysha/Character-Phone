@@ -586,6 +586,12 @@ IMPORTANT:
                 cleaned = cleaned.replace(/```\n?/g, '');
                 cleaned = cleaned.trim();
 
+                // 🆕 CRITICAL: Convert escaped newlines to actual newlines
+                // LLM sometimes returns literal \n instead of actual newlines
+                cleaned = cleaned.replace(/\\n/g, '\n');
+                cleaned = cleaned.replace(/\\t/g, '\t');
+                cleaned = cleaned.replace(/\\r/g, '\r');
+
                 // Extract JSON object
                 const jsonMatch = cleaned.match(/\{[\s\S]*\}(?=\s*$|\s*[\n\r])/);
                 if (jsonMatch) {
