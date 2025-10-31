@@ -592,6 +592,26 @@ class CharacterPhoneExtension {
             });
         }
 
+        // Add new Instagram posts (mark as unread)
+        if (updates.new_instagram_posts && updates.new_instagram_posts.length > 0) {
+            // Initialize instagram_posts array if it doesn't exist
+            if (!this.phoneData.phone_data.instagram_posts) {
+                this.phoneData.phone_data.instagram_posts = [];
+            }
+
+            updates.new_instagram_posts.forEach(post => {
+                post.id = `ig_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+                post.is_new = true; // 🆕 Mark as unread
+                this.phoneData.phone_data.instagram_posts.unshift(post); // Add to beginning (newest first)
+                log('  ✅ Added Instagram post:', post.type, '-', post.caption ? post.caption.substring(0, 30) : 'no caption');
+            });
+
+            // Update posts count
+            if (this.phoneData.phone_data.instagram_profile) {
+                this.phoneData.phone_data.instagram_profile.posts_count = this.phoneData.phone_data.instagram_posts.length;
+            }
+        }
+
         log('[CharacterPhone] ✅ All updates applied successfully');
     }
 
@@ -641,7 +661,20 @@ class CharacterPhoneExtension {
             ],
             location_history: [
                 { id: "loc_001", from: "Home", to: "Work", departure_time: now, arrival_time: now, travel_mode: "car", purpose: "Commute", route: ["Home", "Work"] }
-            ]
+            ],
+            instagram_posts: [
+                { id: "ig_001", type: "photo", image_url: null, image_description: "A cozy coffee shop scene with warm lighting", caption: "My favorite spot ☕✨", likes: 142, comments: 8, timestamp: now, music: null, is_new: false },
+                { id: "ig_002", type: "text", image_url: null, image_description: null, caption: "Sometimes silence speaks louder than words 🌙", likes: 95, comments: 5, timestamp: now, music: { title: "Midnight", artist: "Chill Artist" }, is_new: false }
+            ],
+            instagram_profile: {
+                username: charName.toLowerCase().replace(/\s+/g, '_'),
+                display_name: charName,
+                avatar_url: null,
+                bio: "Living my best life 🌟",
+                posts_count: 2,
+                followers: 486,
+                following: 312
+            }
         };
         
         return {
@@ -868,6 +901,7 @@ class CharacterPhoneExtension {
         // 🆕 Use unread count functions for badges
         const apps = [
             { id: 'messages', icon: '💬', label: 'Messages', badge: this.getUnreadMessagesCount() },
+            { id: 'instagram', icon: '📸', label: 'Instagram', badge: this.getUnreadInstagramCount() },
             { id: 'browser', icon: '🌐', label: 'Browser', badge: this.getUnreadBrowserCount() },
             { id: 'wallet', icon: '💳', label: 'Wallet', badge: this.getUnreadWalletCount() },
             { id: 'notes', icon: '📝', label: 'Notes', badge: this.getUnreadNotesCount() },
@@ -950,6 +984,10 @@ class CharacterPhoneExtension {
         switch(appId) {
             case 'messages':
                 appContent = this.renderMessagesApp();
+                break;
+            case 'instagram':
+                this.markAppAsRead('instagram'); // 🆕 Mark Instagram posts as read
+                appContent = this.renderInstagramApp();
                 break;
             case 'browser':
                 this.markAppAsRead('browser'); // 🆕 Mark browser items as read
@@ -1358,6 +1396,217 @@ class CharacterPhoneExtension {
         `;
     }
 
+    renderInstagramApp() {
+        if (!this.phoneData?.phone_data?.instagram_posts) {
+            return '<div class="app-container"><p style="color: #999; padding: 20px;">No Instagram data</p></div>';
+        }
+
+        const posts = this.phoneData.phone_data.instagram_posts;
+        const profile = this.phoneData.phone_data.instagram_profile || {
+            username: 'user',
+            display_name: this.getCharacterName(),
+            avatar_url: null,
+            bio: '',
+            posts_count: posts.length,
+            followers: 0,
+            following: 0
+        };
+
+        const sortedPosts = this.sortByTimestamp([...posts], 'timestamp');
+
+        const postsHTML = sortedPosts.map(post => {
+            const isNewPost = post.is_new === true;
+            const hasImage = post.type === 'photo';
+            const hasMusic = post.music && post.music.title;
+
+            return `
+                <div class="ig-post ${isNewPost ? 'ig-post-unread' : ''}" data-post-id="${post.id}">
+                    <!-- Post Header -->
+                    <div class="ig-post-header">
+                        <div class="ig-post-user">
+                            <div class="ig-avatar-small ${profile.avatar_url ? '' : 'ig-avatar-placeholder'}"
+                                 onclick="window.characterPhone.uploadInstagramAvatar(event)">
+                                ${profile.avatar_url ?
+                                    `<img src="${profile.avatar_url}" alt="${profile.display_name}">` :
+                                    `<span>${profile.display_name.charAt(0).toUpperCase()}</span>`
+                                }
+                                <div class="ig-camera-overlay">📷</div>
+                            </div>
+                            <span class="ig-username">${profile.display_name}</span>
+                        </div>
+                        <button class="ig-options-btn">⋯</button>
+                    </div>
+
+                    <!-- Post Image/Content -->
+                    <div class="ig-post-image-container" onclick="window.characterPhone.uploadPostImage(event, '${post.id}')">
+                        ${hasImage ?
+                            (post.image_url ?
+                                `<img src="${post.image_url}" class="ig-post-image" alt="Post">` :
+                                `<div class="ig-image-placeholder">
+                                    <div class="ig-image-description">${post.image_description || 'No image'}</div>
+                                    <div class="ig-camera-overlay-large">📷 Click to upload image</div>
+                                </div>`
+                            ) :
+                            `<div class="ig-text-post">
+                                <p>${post.caption}</p>
+                            </div>`
+                        }
+                    </div>
+
+                    <!-- Post Actions -->
+                    <div class="ig-post-actions">
+                        <div class="ig-action-buttons">
+                            <button class="ig-action-btn">
+                                <svg width="24" height="24" viewBox="0 0 24 24">
+                                    <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" fill="none" stroke="currentColor" stroke-width="2"/>
+                                </svg>
+                            </button>
+                            <button class="ig-action-btn">
+                                <svg width="24" height="24" viewBox="0 0 24 24">
+                                    <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z" fill="none" stroke="currentColor" stroke-width="2"/>
+                                </svg>
+                            </button>
+                            <button class="ig-action-btn">
+                                <svg width="24" height="24" viewBox="0 0 24 24">
+                                    <path d="M21 4L12 13 3 4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                                </svg>
+                            </button>
+                        </div>
+                        <button class="ig-action-btn">
+                            <svg width="24" height="24" viewBox="0 0 24 24">
+                                <path d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z" fill="none" stroke="currentColor" stroke-width="2"/>
+                            </svg>
+                        </button>
+                    </div>
+
+                    <!-- Post Info -->
+                    <div class="ig-post-info">
+                        <div class="ig-likes">${post.likes.toLocaleString()} likes</div>
+                        ${hasImage && post.caption ?
+                            `<div class="ig-caption">
+                                <span class="ig-username-bold">${profile.display_name}</span>
+                                ${post.caption}
+                            </div>` : ''
+                        }
+                        ${post.comments > 0 ?
+                            `<div class="ig-comments-link">View all ${post.comments} comments</div>` : ''
+                        }
+                        <div class="ig-timestamp">${this.formatTime(post.timestamp)}</div>
+                        ${hasMusic ?
+                            `<div class="ig-music">
+                                <span class="ig-music-icon">🎵</span>
+                                ${post.music.title} • ${post.music.artist}
+                            </div>` : ''
+                        }
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+        return `
+            <div class="app-container instagram-app">
+                <!-- Instagram Header -->
+                <div class="ig-header">
+                    <button class="app-back-btn" onclick="window.characterPhone.showHomeScreen()">←</button>
+                    <h2 class="ig-logo">Instagram</h2>
+                    <div class="ig-header-actions">
+                        <button class="ig-header-btn">➕</button>
+                        <button class="ig-header-btn">❤️</button>
+                        <button class="ig-header-btn">✉️</button>
+                    </div>
+                </div>
+
+                <!-- Profile Section (Mini) -->
+                <div class="ig-profile-mini">
+                    <div class="ig-avatar ${profile.avatar_url ? '' : 'ig-avatar-placeholder'}"
+                         onclick="window.characterPhone.uploadInstagramAvatar(event)">
+                        ${profile.avatar_url ?
+                            `<img src="${profile.avatar_url}" alt="${profile.display_name}">` :
+                            `<span>${profile.display_name.charAt(0).toUpperCase()}</span>`
+                        }
+                        <div class="ig-camera-overlay">📷</div>
+                    </div>
+                    <div class="ig-profile-info">
+                        <div class="ig-display-name">${profile.display_name}</div>
+                        <div class="ig-username-gray">@${profile.username}</div>
+                    </div>
+                    <div class="ig-profile-stats">
+                        <div class="ig-stat">
+                            <div class="ig-stat-number">${profile.posts_count}</div>
+                            <div class="ig-stat-label">posts</div>
+                        </div>
+                        <div class="ig-stat">
+                            <div class="ig-stat-number">${profile.followers}</div>
+                            <div class="ig-stat-label">followers</div>
+                        </div>
+                        <div class="ig-stat">
+                            <div class="ig-stat-number">${profile.following}</div>
+                            <div class="ig-stat-label">following</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Feed -->
+                <div class="ig-feed">
+                    ${postsHTML || '<div class="ig-empty-state">No posts yet</div>'}
+                </div>
+
+                <!-- Hidden file input for uploads -->
+                <input type="file" id="ig-upload-input" accept="image/*" style="display: none;"
+                       onchange="window.characterPhone.handleImageUpload(event)">
+            </div>
+        `;
+    }
+
+    // Upload Instagram avatar
+    async uploadInstagramAvatar(event) {
+        event.stopPropagation();
+        this.currentUploadTarget = 'avatar';
+        document.getElementById('ig-upload-input').click();
+    }
+
+    // Upload post image
+    async uploadPostImage(event, postId) {
+        event.stopPropagation();
+        this.currentUploadTarget = postId;
+        document.getElementById('ig-upload-input').click();
+    }
+
+    // Handle image upload
+    async handleImageUpload(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = async (e) => {
+            const imageData = e.target.result;
+
+            if (this.currentUploadTarget === 'avatar') {
+                // Update avatar
+                if (this.phoneData.phone_data.instagram_profile) {
+                    this.phoneData.phone_data.instagram_profile.avatar_url = imageData;
+                }
+                log('✅ Instagram avatar updated');
+            } else {
+                // Update post image
+                const post = this.phoneData.phone_data.instagram_posts.find(
+                    p => p.id === this.currentUploadTarget
+                );
+                if (post) {
+                    post.image_url = imageData;
+                    log('✅ Instagram post image updated:', post.id);
+                }
+            }
+
+            // Save and re-render
+            await this.savePhoneData();
+            this.openApp('instagram');
+        };
+
+        reader.readAsDataURL(file);
+        event.target.value = ''; // Reset input
+    }
+
     renderSettingsApp() {
         return `
             <div class="app-container settings-app">
@@ -1567,6 +1816,14 @@ class CharacterPhoneExtension {
         return this.phoneData.phone_data.location_history.filter(loc => loc.is_new === true).length;
     }
 
+    // 🆕 Count unread Instagram posts
+    getUnreadInstagramCount() {
+        if (!this.phoneData || !this.phoneData.phone_data || !this.phoneData.phone_data.instagram_posts) {
+            return 0;
+        }
+        return this.phoneData.phone_data.instagram_posts.filter(post => post.is_new === true).length;
+    }
+
     // 🆕 Mark all items in an app as read
     async markAppAsRead(appId) {
         if (!this.phoneData || !this.phoneData.phone_data) {
@@ -1614,6 +1871,17 @@ class CharacterPhoneExtension {
                     this.phoneData.phone_data.location_history.forEach(loc => {
                         if (loc.is_new === true) {
                             loc.is_new = false;
+                            hasUnread = true;
+                        }
+                    });
+                }
+                break;
+
+            case 'instagram':
+                if (this.phoneData.phone_data.instagram_posts) {
+                    this.phoneData.phone_data.instagram_posts.forEach(post => {
+                        if (post.is_new === true) {
+                            post.is_new = false;
                             hasUnread = true;
                         }
                     });

@@ -389,6 +389,15 @@ Examples of WRONG (DO NOT DO THIS):
 - Include times and purposes
 - Realistic travel modes
 
+6. INSTAGRAM POSTS (4-6 posts)
+- Create realistic Instagram posts that reflect ${characterName}'s life and personality
+- Include both photo posts (with image descriptions) and text-only posts
+- Add captions, likes count, and optional music/song references
+- Recent posts from the past few days
+- Photo posts should have detailed image descriptions (what the photo shows)
+- Text posts are status updates or thoughts
+- Make posts feel authentic to ${characterName}'s character
+
 OUTPUT ONLY VALID JSON with this structure:
 
 {
@@ -419,6 +428,30 @@ OUTPUT ONLY VALID JSON with this structure:
   ],
   "location_history": [
     {"id": "loc_001", "from": "Home", "to": "Work", "departure_time": "${currentDate}T08:00:00Z", "arrival_time": "${currentDate}T08:30:00Z", "travel_mode": "car", "purpose": "Commute", "route": ["Home", "Street", "Work"]}
+  ],
+  "instagram_posts": [
+    {
+      "id": "ig_001",
+      "type": "photo",
+      "image_url": null,
+      "image_description": "A beautiful sunset over the ocean with warm orange and pink colors",
+      "caption": "Golden hour vibes ✨ #sunset #peaceful",
+      "likes": 234,
+      "comments": 12,
+      "timestamp": "${currentDate}T18:30:00Z",
+      "music": null
+    },
+    {
+      "id": "ig_002",
+      "type": "text",
+      "image_url": null,
+      "image_description": null,
+      "caption": "Sometimes the best moments are the quiet ones ☕",
+      "likes": 156,
+      "comments": 8,
+      "timestamp": "${currentDate}T09:00:00Z",
+      "music": {"title": "Sunny Day", "artist": "Artist Name"}
+    }
   ]
 }
 
@@ -489,6 +522,7 @@ YOUR TASK: Analyze the NEW messages above and identify if there are ANY new:
 3. 💰 Money transactions (spending or receiving money)
 4. 📝 Notes/reminders ${characterName} made
 5. 📍 Places ${characterName} visited
+6. 📸 Instagram posts ${characterName} might have posted (photos or text status)
 
 🚨 EXTREMELY IMPORTANT FOR MESSAGES:
 ❌ WRONG: Adding messages between ${characterName} and the User
@@ -536,6 +570,9 @@ OUTPUT FORMAT (JSON):
   ],
   "new_locations": [
     {"from": "...", "to": "...", "departure_time": "${currentDate}T18:00:00Z", "arrival_time": "${currentDate}T18:30:00Z", "travel_mode": "...", "purpose": "...", "route": ["...", "..."]}
+  ],
+  "new_instagram_posts": [
+    {"type": "photo", "image_url": null, "image_description": "...", "caption": "...", "likes": 100, "comments": 5, "timestamp": "${currentDate}T19:00:00Z", "music": null}
   ]
 }
 
