@@ -74,46 +74,39 @@ class CharacterPhoneExtension {
     }
 
     createPhoneButton() {
-        log('Creating phone button...');
-        
-        const existingButton = document.getElementById('character-phone-button');
-        if (existingButton) {
-            log('Button already exists, removing old one');
-            existingButton.remove();
+        log('Creating phone menu item in extensions menu...');
+
+        const existingMenuItem = document.getElementById('character-phone-menu-item-container');
+        if (existingMenuItem) {
+            log('Menu item already exists, removing old one');
+            existingMenuItem.remove();
         }
-        
-        const container = document.querySelector('#form_sheld');
-        
-        if (container) {
-            this.createInlineButton();
-        } else {
-            this.createFloatingButton();
-        }
+
+        this.createExtensionMenuItem();
     }
 
-    createInlineButton() {
-        log('Creating inline phone button in bottom toolbar...');
-        
-        const container = document.querySelector('#form_sheld');
-        if (!container) {
-            log('Container #form_sheld not found, falling back to floating button');
-            this.createFloatingButton();
-            return;
-        }
-        
-        const button = document.createElement('div');
-        button.id = 'character-phone-button';
-        button.className = 'character-phone-inline-btn';
-        button.title = 'Character Phone';
-        button.innerHTML = `<i class="fa-solid fa-mobile-screen-button"></i>`;
-        
+    createExtensionMenuItem() {
+        log('Creating extension menu item for phone...');
+
+        const menuItem = document.createElement('div');
+        menuItem.id = 'character-phone-menu-item-container';
+        menuItem.className = 'extension_container interactable';
+        menuItem.setAttribute('tabindex', '0');
+
+        menuItem.innerHTML = `
+            <div id="character-phone-menu-item" class="list-group-item flex-container flexGap5 interactable" tabindex="0">
+                <div class="fa-fw fa-solid fa-mobile-screen-button extensionsMenuExtensionButton"></div>
+                <span>Character Phone</span>
+            </div>
+        `;
+
         const self = this;
-        button.addEventListener('click', async function(e) {
+        menuItem.addEventListener('click', async function(e) {
             e.preventDefault();
             e.stopPropagation();
-            
-            console.log('[CharacterPhone] Phone button clicked!');
-            
+
+            console.log('[CharacterPhone] Phone menu item clicked!');
+
             try {
                 if (self.isPhoneOpen) {
                     self.closePhone();
@@ -121,104 +114,72 @@ class CharacterPhoneExtension {
                     await self.openPhone();
                 }
             } catch (error) {
-                console.error('[CharacterPhone] Error handling phone button click:', error);
+                console.error('[CharacterPhone] Error handling phone menu item click:', error);
                 toastr.error('Failed to open phone', 'Character Phone');
             }
         });
-        
-        if (container.firstChild) {
-            container.insertBefore(button, container.firstChild);
-        } else {
-            container.appendChild(button);
-        }
-        
-        this.phoneButton = button;
-        log('Phone button created successfully in bottom toolbar');
-    }
 
-    createFloatingButton() {
-        log('Creating floating phone button as fallback...');
-        
-        const button = document.createElement('div');
-        button.id = 'character-phone-button';
-        button.className = 'character-phone-floating-btn';
-        button.title = 'Character Phone';
-        button.innerHTML = `<i class="fa-solid fa-mobile-screen-button"></i>`;
-        
-        const self = this;
-        button.addEventListener('click', async function(e) {
-            e.preventDefault();
-            e.stopPropagation();
-            
-            console.log('[CharacterPhone] Phone button clicked!');
-            
-            try {
-                if (self.isPhoneOpen) {
-                    self.closePhone();
-                } else {
-                    await self.openPhone();
-                }
-            } catch (error) {
-                console.error('[CharacterPhone] Error handling phone button click:', error);
-                toastr.error('Failed to open phone', 'Character Phone');
-            }
-        });
-        
-        document.body.appendChild(button);
-        this.phoneButton = button;
-        log('Floating phone button created');
+        const extensionsMenu = document.getElementById('extensionsMenu');
+        if (extensionsMenu) {
+            extensionsMenu.appendChild(menuItem);
+            this.phoneButton = menuItem;
+            log('✅ Phone menu item created successfully in extensions menu');
+        } else {
+            console.warn('[CharacterPhone] Extensions menu not found - retrying initialization in 500ms');
+            setTimeout(() => this.createPhoneButton(), 500);
+        }
     }
 
     registerEventListeners() {
         log('Registering event listeners...');
-        
+
         const { eventSource, event_types } = this.context;
-        
+
         setInterval(() => {
-            const button = document.getElementById('character-phone-button');
-            if (!button) {
-                log('⚠️ Phone button missing! Recreating...');
+            const menuItem = document.getElementById('character-phone-menu-item-container');
+            if (!menuItem) {
+                log('⚠️ Phone menu item missing! Recreating...');
                 this.createPhoneButton();
             }
         }, 2000);
-        
+
         eventSource.on(event_types.CHAT_CHANGED, () => {
             log('Chat changed, resetting phone data');
             this.phoneData = null;
             this.currentCharacterId = null;
             this.closePhone();
-            
+
             this.clearLocalStorageCache();
-            
+
             setTimeout(() => {
                 this.createPhoneButton();
             }, 500);
         });
-        
+
         eventSource.on(event_types.CHARACTER_MESSAGE_RENDERED, () => {
             const newCharId = this.context.characterId;
-            if (this.currentCharacterId !== null && 
+            if (this.currentCharacterId !== null &&
                 this.currentCharacterId !== newCharId) {
                 log('Character changed, resetting phone data');
                 this.phoneData = null;
                 this.currentCharacterId = null;
                 this.closePhone();
-                
+
                 setTimeout(() => {
                     this.createPhoneButton();
                 }, 500);
             }
         });
-        
+
         eventSource.on(event_types.MESSAGE_RECEIVED, () => {
             log('Message received, may need to update phone data');
-            
-            if (!document.getElementById('character-phone-button')) {
-                log('Button missing after message, recreating...');
+
+            if (!document.getElementById('character-phone-menu-item-container')) {
+                log('Menu item missing after message, recreating...');
                 this.createPhoneButton();
             }
         });
-        
+
         log('Event listeners registered');
     }
 
