@@ -604,10 +604,12 @@ IMPORTANT:
                 cleaned = cleaned.replace(/,(\s*[}\]])/g, '$1');
 
                 // Apply multiple repair attempts
+                cleaned = this.fixUnescapedCharacters(cleaned);
                 cleaned = this.fixJsonQuotes(cleaned);
                 cleaned = this.fixJsonArrayCommas(cleaned);
                 cleaned = this.fixJsonNewlines(cleaned);
                 cleaned = this.fixBrokenStrings(cleaned);
+                cleaned = this.fixInvalidPropertyValues(cleaned);
 
                 console.log('[LLMProcessor] Cleaned JSON (first 300 chars):', cleaned.substring(0, 300));
 
@@ -623,8 +625,19 @@ IMPORTANT:
                     if (errorPos) {
                         const pos = parseInt(errorPos);
                         console.error('[LLMProcessor] Context around error:');
-                        console.error('  Before:', cleaned.substring(Math.max(0, pos - 50), pos));
-                        console.error('  Error at:', cleaned.substring(pos, pos + 50));
+                        console.error('  Before:', cleaned.substring(Math.max(0, pos - 100), pos));
+                        console.error('  ❌ Error at:', cleaned.substring(pos, pos + 100));
+                        console.error('  After:', cleaned.substring(pos + 100, pos + 200));
+
+                        // Show the problematic line
+                        const lines = cleaned.substring(0, pos).split('\n');
+                        const lineNum = lines.length;
+                        const colNum = lines[lines.length - 1].length + 1;
+                        console.error(`  📍 Position: Line ${lineNum}, Column ${colNum}`);
+
+                        // Show the exact character causing issue
+                        const badChar = cleaned.charAt(pos);
+                        console.error(`  🔴 Bad character: "${badChar}" (code: ${badChar.charCodeAt(0)})`);
                     }
 
                     // Try aggressive repair
@@ -952,6 +965,62 @@ IMPORTANT:
             return completed;
         } catch (e) {
             console.warn('[LLMProcessor] forceCompleteTruncated failed:', e);
+            return json;
+        }
+    }
+
+    fixUnescapedCharacters(json) {
+        try {
+            console.log('[LLMProcessor] Fixing unescaped characters...');
+            let fixed = json;
+
+            // Fix unescaped newlines in string values
+            fixed = fixed.replace(/"([^"]*)\n([^"]*)"/g, (match, before, after) => {
+                return `"${before}\\n${after}"`;
+            });
+
+            // Fix unescaped backslashes (except already escaped ones)
+            fixed = fixed.replace(/\\(?!["\\/bfnrtu])/g, '\\\\');
+
+            // Fix unescaped quotes inside strings (tricky!)
+            // This is complex, so we'll try a simple approach
+            fixed = fixed.replace(/:\s*"([^"]*)"([^",:}\]]*)"([^"]*)"(?=[,}\]])/g, (match, p1, p2, p3) => {
+                return `: "${p1}\\"${p2}\\"${p3}"`;
+            });
+
+            // Fix Unicode characters that might cause issues
+            fixed = fixed.replace(/[\u0000-\u001F\u007F-\u009F]/g, '');
+
+            return fixed;
+        } catch (e) {
+            console.warn('[LLMProcessor] fixUnescapedCharacters failed:', e);
+            return json;
+        }
+    }
+
+    fixInvalidPropertyValues(json) {
+        try {
+            console.log('[LLMProcessor] Fixing invalid property values...');
+            let fixed = json;
+
+            // Fix missing commas after string values
+            fixed = fixed.replace(/"(\s*)\n(\s*)"([^"]+)":/g, '",\n$2"$3":');
+
+            // Fix missing commas after number values
+            fixed = fixed.replace(/(\d+)(\s*)\n(\s*)"([^"]+)":/g, '$1,\n$3"$4":');
+
+            // Fix missing commas after boolean values
+            fixed = fixed.replace(/(true|false)(\s*)\n(\s*)"([^"]+)":/g, '$1,\n$3"$4":');
+
+            // Fix missing commas after objects
+            fixed = fixed.replace(/\}(\s*)\n(\s*)"([^"]+)":/g, '},\n$2"$3":');
+
+            // Fix missing commas after arrays
+            fixed = fixed.replace(/\](\s*)\n(\s*)"([^"]+)":/g, '],\n$2"$3":');
+
+            return fixed;
+        } catch (e) {
+            console.warn('[LLMProcessor] fixInvalidPropertyValues failed:', e);
             return json;
         }
     }
