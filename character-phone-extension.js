@@ -715,6 +715,53 @@ class CharacterPhoneExtension {
         }
     }
 
+    async clearCorruptedData() {
+        try {
+            log('🗑️ Clearing corrupted phone data...');
+
+            const { chatMetadata, saveMetadata } = this.context;
+
+            // Clear metadata
+            if (chatMetadata['character_phone']) {
+                delete chatMetadata['character_phone'];
+                log('Cleared character_phone from metadata');
+            }
+
+            // Clear history
+            const historyKey = 'character_phone_history';
+            if (chatMetadata[historyKey]) {
+                delete chatMetadata[historyKey];
+                log('Cleared history from metadata');
+            }
+
+            // Clear localStorage
+            this.clearLocalStorageCache();
+
+            // Save changes
+            await saveMetadata();
+
+            // Reset state
+            this.phoneData = null;
+            this.lastGeneratedCharacterId = null;
+            this.lastGenerationTime = null;
+
+            toastr.success('Corrupted data cleared!', 'Character Phone', { timeOut: 2000 });
+
+            // Close and regenerate
+            this.closePhone();
+
+            // Wait a bit then regenerate
+            setTimeout(async () => {
+                toastr.info('Generating fresh phone data...', 'Character Phone');
+                await this.openPhone();
+            }, 1000);
+
+        } catch (error) {
+            console.error('[CharacterPhone] Failed to clear corrupted data:', error);
+            toastr.error('Failed to clear data', 'Character Phone');
+        }
+    }
+
     loadPhoneDataHistory() {
         const { chatMetadata } = this.context;
         const historyKey = 'character_phone' + '_history';
@@ -823,26 +870,67 @@ class CharacterPhoneExtension {
     }
 
     renderHomeScreen() {
-        if (!this.phoneData || !this.phoneData.phone_data) {
-            log('⚠️ phoneData not ready, showing placeholder');
+        if (!this.phoneData) {
+            log('⚠️ phoneData is null/undefined');
             return `
                 <div style="padding: 20px; text-align: center; color: #999;">
                     <p>Loading phone data...</p>
                 </div>
             `;
         }
-        
-        const notesCount = this.phoneData.phone_data.notes ? this.phoneData.phone_data.notes.length : 0;
+
+        // Check if phoneData has correct structure
+        let actualPhoneData = this.phoneData;
+
+        // If phoneData has nested phone_data, unwrap it
+        if (this.phoneData.phone_data && !this.phoneData.messages) {
+            log('📦 Unwrapping nested phone_data structure');
+            actualPhoneData = this.phoneData.phone_data;
+        }
+
+        // Validate required fields
+        const requiredFields = ['messages', 'browser_history', 'wallet', 'notes', 'location_history'];
+        const missingFields = requiredFields.filter(field => !actualPhoneData[field]);
+
+        if (missingFields.length > 0) {
+            console.error('[CharacterPhone] Missing fields in phoneData:', missingFields);
+            console.error('[CharacterPhone] Available fields:', Object.keys(actualPhoneData));
+            log('❌ phoneData structure invalid, missing:', missingFields.join(', '));
+
+            return `
+                <div style="padding: 20px; text-align: center; color: #ff3b30;">
+                    <p>⚠️ Phone data corrupted</p>
+                    <p style="font-size: 12px; color: #999; margin-top: 10px;">
+                        Missing: ${missingFields.join(', ')}
+                    </p>
+                    <button onclick="window.characterPhone.clearCorruptedData()"
+                            style="margin-top: 15px; padding: 8px 16px; background: #667eea; color: white; border: none; border-radius: 8px; cursor: pointer;">
+                        Clear & Regenerate
+                    </button>
+                </div>
+            `;
+        }
+
+        // Update reference if unwrapped
+        if (this.phoneData !== actualPhoneData && this.phoneData.phone_data === actualPhoneData) {
+            log('✅ phoneData structure validated and unwrapped');
+            // Keep the nested structure, just use actualPhoneData for rendering
+        }
+
+        log('✅ phoneData ready, rendering home screen');
+
+        // Use actualPhoneData for accessing data
+        const notesCount = actualPhoneData.notes ? actualPhoneData.notes.length : 0;
         const historyCount = this.loadPhoneDataHistory().length;
-        
+
         const apps = [
             { id: 'messages', icon: '💬', label: 'Messages', badge: this.getUnreadMessagesCount() },
-            { id: 'browser', icon: '🌐', label: 'Browser', badge: this.getUnreadMessagesCount() },
-            { id: 'wallet', icon: '💳', label: 'Wallet', badge: this.getUnreadMessagesCount() },
-            { id: 'notes', icon: '📝', label: 'Notes', badge: this.getUnreadMessagesCount() },
-            { id: 'maps', icon: '🗺️', label: 'Maps', badge: this.getUnreadMessagesCount() },
+            { id: 'browser', icon: '🌐', label: 'Browser', badge: this.getUnreadBrowserCount() },
+            { id: 'wallet', icon: '💳', label: 'Wallet', badge: this.getUnreadWalletCount() },
+            { id: 'notes', icon: '📝', label: 'Notes', badge: this.getUnreadNotesCount() },
+            { id: 'maps', icon: '🗺️', label: 'Maps', badge: this.getUnreadMapsCount() },
             { id: 'settings', icon: '⚙️', label: 'Settings', badge: 0 },
-            { id: 'history', icon: '🕐', label: 'History', badge: 0 }, // No badge for history
+            { id: 'history', icon: '🕐', label: 'History', badge: 0 },
             { id: 'update', icon: '🔄', label: 'Update', badge: 0, isAction: true }
         ];
         
